@@ -15,13 +15,13 @@
   "build": {
     "appId": "com.terminalnotepad.app",
     "productName": "Terminal Notepad",
-    "icon": "icon256.ico",
+    "icon": "assets/icon256.ico",
     "directories": {
       "output": "release"
     },
     "win": {
       "target": "nsis",
-      "icon": "icon256.ico"
+      "icon": "assets/icon256.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -34,12 +34,12 @@
       "dist/**/*",
       "electron/main.cjs",
       "electron/preload.cjs",
-      "icon256.ico"
+      "assets/icon256.ico"
     ],
     "publish": {
       "provider": "github",
       "owner": "helpmezed",
-      "repo": "terminal-notepad"
+      "repo": "Terminal-Notepad"
     }
   },
   "dependencies": {
