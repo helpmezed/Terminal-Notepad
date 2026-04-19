@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "electron:build": "vite build && electron-builder --win --x64"
+    "electron:build": "vite build && electron-builder --win --x64",
+    "electron:release": "vite build && electron-builder --win --x64 --publish always"
   },
   "build": {
     "appId": "com.terminalnotepad.app",

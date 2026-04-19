@@ -74,7 +74,7 @@ function SkullCursor() {
   return (
     <motion.svg
       viewBox="0 0 200 200"
-      style={{ width: 14, height: 14, overflow: 'visible' }}
+      style={{ width: 21, height: 21, overflow: 'visible' }}
       animate={{ y: [0, -2, 0] }}
       transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
     >
