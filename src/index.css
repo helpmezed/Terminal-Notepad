@@ -1,0 +1,196 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+
+@theme {
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "Courier New", Courier, monospace;
+  
+  --color-ascii-bg: #08090a;
+  --color-ascii-fg: #00ff41;
+  --color-ascii-dim: #004d13;
+  --color-ascii-accent1: #5b21b6;
+  --color-ascii-accent2: #ec4899;
+  --color-ascii-border: rgba(0, 255, 65, 0.25);
+}
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    @apply font-sans bg-ascii-bg text-ascii-fg selection:bg-ascii-fg selection:text-ascii-bg;
+    overflow: hidden;
+    height: 100vh;
+    border: 1px solid var(--color-ascii-border);
+  }
+}
+
+/* Theme-specific utility classes */
+.title-bar {
+  @apply flex justify-between items-center border-b-[3px] border-ascii-fg px-4 py-1.5 font-bold bg-ascii-fg text-ascii-bg text-[12px] font-sans;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.1);
+  -webkit-app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.menu-bar {
+  @apply flex gap-4 px-3 py-1 border-b border-ascii-border text-[11px] font-sans font-semibold bg-black/20;
+}
+
+.menu-item {
+  @apply cursor-pointer hover:bg-ascii-fg hover:text-ascii-bg px-2 -mx-1 transition-all rounded-xs;
+}
+
+.sidebar-panel {
+  @apply border-r border-ascii-border bg-ascii-fg/[0.02] flex flex-col gap-1 p-1 overflow-y-auto backdrop-blur-[2px];
+}
+
+.control-group {
+  @apply border border-ascii-border p-1.5 text-[9px] bg-black/20 rounded-sm relative;
+}
+
+.control-label {
+  @apply text-ascii-dim text-[10px] uppercase mb-1.5 block font-bold font-sans;
+}
+
+.hd-btn {
+  @apply w-full border border-ascii-border bg-transparent text-ascii-fg p-2.5 mt-1 cursor-pointer
+         text-[11px] font-sans font-semibold text-left transition-all duration-300
+         hover:bg-ascii-fg/10 hover:border-ascii-fg hover:shadow-[0_0_20px_rgba(0,255,65,0.2)]
+         active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed rounded-xs;
+  position: relative;
+  overflow: hidden;
+}
+
+.hd-btn::before {
+  content: "";
+  @apply absolute left-0 top-0 w-[2.5px] h-full bg-ascii-fg opacity-0 transition-opacity;
+}
+
+.hd-btn:hover::before {
+  @apply opacity-100;
+}
+
+.data-tag {
+  @apply text-[9px] uppercase px-1 bg-ascii-fg/10 text-ascii-dim font-sans;
+}
+
+.editor-glass {
+  @apply border border-ascii-dim flex-1 p-2 bg-black/40 relative flex flex-col rounded-sm shadow-[inset_0_0_40px_rgba(0,0,0,0.6)];
+}
+
+.editor-glass::before {
+  content: "BUFFER: //SENTINEL-A1";
+  position: absolute;
+  top: -8px;
+  left: 10px;
+  @apply bg-ascii-bg px-2 text-[9px] text-ascii-dim font-sans font-semibold;
+}
+
+.status-bar {
+  @apply border-t border-ascii-border px-3 py-1 text-[10px] flex justify-between text-ascii-dim font-sans font-medium;
+}
+
+.orb-panel {
+  @apply border border-dashed border-ascii-border flex flex-col items-center justify-center p-2 relative overflow-hidden;
+}
+
+.viz-bar-container {
+  @apply h-8 border-t border-ascii-dim mt-auto flex items-end gap-1 px-1;
+}
+
+.viz-bar {
+  @apply flex-1 bg-ascii-fg;
+  height: 20%;
+}
+
+/* Glitch and Scanlines with CRT effects */
+.scanlines {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
+              linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+  background-size: 100% 3px, 4px 100%;
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0.3;
+}
+
+.crt-vignette {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle, transparent 60%, rgba(0,0,0,0.4) 100%);
+  pointer-events: none;
+  z-index: 1001;
+}
+
+.crt-flicker {
+  animation: flicker 0.15s infinite;
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 16, 16, 0.02);
+  z-index: 999;
+}
+
+@keyframes flicker {
+  0% { opacity: 0.1; }
+  5% { opacity: 0.2; }
+  10% { opacity: 0.1; }
+  15% { opacity: 0.25; }
+  25% { opacity: 0.15; }
+  30% { opacity: 0.3; }
+  100% { opacity: 0.1; }
+}
+
+.panel-corner {
+  @apply absolute w-2 h-2 border-ascii-fg opacity-40;
+}
+
+.corner-tl { @apply top-1 left-1 border-t border-l; }
+.corner-tr { @apply top-1 right-1 border-t border-r; }
+.corner-bl { @apply bottom-1 left-1 border-b border-l; }
+.corner-br { @apply bottom-1 right-1 border-b border-r; }
+
+.glitch-text {
+  position: relative;
+  display: inline-block;
+}
+
+.glitch-text::before,
+.glitch-text::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: inherit;
+  overflow: hidden;
+}
+
+.glitch-text::after {
+  left: 2px;
+  text-shadow: -2px 0 #ff00c1;
+  clip: rect(44px, 450px, 56px, 0);
+  animation: glitch-anim 5s infinite linear alternate-reverse;
+}
+
+@keyframes glitch-anim {
+  0% { clip: rect(31px, 9999px, 94px, 0); }
+  20% { clip: rect(62px, 9999px, 42px, 0); }
+  40% { clip: rect(16px, 9999px, 78px, 0); }
+  60% { clip: rect(87px, 9999px, 11px, 0); }
+  80% { clip: rect(54px, 9999px, 34px, 0); }
+  100% { clip: rect(2px, 9999px, 64px, 0); }
+}
+

@@ -1,0 +1,6 @@
+{
+  "name": "ASCII Notepad++",
+  "description": "A retro-future ASCII-aesthetic notepad with text-to-speech, 3D visualizers, and live word rendering.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
