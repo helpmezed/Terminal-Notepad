@@ -360,31 +360,57 @@ export default function App() {
 
   const playTypingSound = () => {
     if (!isSoundEnabled) return;
-    
+
     try {
       if (!audioCtxRef.current) {
         audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       }
-      
+
       const ctx = audioCtxRef.current;
       if (ctx.state === 'suspended') ctx.resume();
 
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      
-      // Triangle wave provides a softer, premium mechanical 'thud' compared to square
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(800 + Math.random() * 200, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.04);
-      
-      gain.gain.setValueAtTime(soundVolume, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
-      
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      
-      osc.start();
-      osc.stop(ctx.currentTime + 0.04);
+      const now = ctx.currentTime;
+      const master = ctx.createGain();
+      master.gain.setValueAtTime(soundVolume, now);
+      master.connect(ctx.destination);
+
+      // Click transient: white noise through a bandpass filter
+      const bufLen = ctx.sampleRate * 0.025;
+      const noiseBuffer = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
+      const noiseSource = ctx.createBufferSource();
+      noiseSource.buffer = noiseBuffer;
+
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(3500 + Math.random() * 1500, now);
+      bp.Q.value = 1.2;
+
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.9, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.018);
+
+      noiseSource.connect(bp);
+      bp.connect(noiseGain);
+      noiseGain.connect(master);
+      noiseSource.start(now);
+      noiseSource.stop(now + 0.025);
+
+      // Body thud: sine sweep from ~180–60 Hz
+      const thud = ctx.createOscillator();
+      thud.type = 'sine';
+      thud.frequency.setValueAtTime(160 + Math.random() * 40, now);
+      thud.frequency.exponentialRampToValueAtTime(55, now + 0.03);
+
+      const thudGain = ctx.createGain();
+      thudGain.gain.setValueAtTime(0.55, now);
+      thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+
+      thud.connect(thudGain);
+      thudGain.connect(master);
+      thud.start(now);
+      thud.stop(now + 0.03);
     } catch (e) {
       console.warn('Audio peripheral failed to initialize');
     }
