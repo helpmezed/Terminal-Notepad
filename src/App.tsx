@@ -46,6 +46,45 @@ function MenuDivider() {
   return <div className="h-px bg-ascii-border/40 mx-2 my-0.5" />;
 }
 
+const SKULL_POSES = [
+  {
+    skull: "M100,30 C60,30 40,60 40,90 C40,110 50,120 55,145 C57,155 70,165 100,165 C130,165 143,155 145,145 C150,120 160,110 160,90 C160,60 140,30 100,30 Z",
+    eyeL: "M65,85 C55,85 55,110 65,110 C75,110 85,100 80,85 Z",
+    eyeR: "M135,85 C145,85 145,110 135,110 C125,110 115,100 120,85 Z",
+  },
+  {
+    skull: "M100,45 C50,45 35,70 35,95 C35,115 50,125 55,145 C57,155 70,160 100,160 C130,160 143,155 145,145 C150,125 165,115 165,95 C165,70 150,45 100,45 Z",
+    eyeL: "M70,90 C50,90 50,120 70,120 C85,120 90,110 85,90 Z",
+    eyeR: "M130,90 C150,90 150,120 130,120 C115,120 110,110 115,90 Z",
+  },
+  {
+    skull: "M110,35 C70,30 45,60 45,95 C45,115 45,130 55,150 C57,160 75,165 105,165 C135,165 150,155 150,140 C150,115 160,105 160,85 C160,55 145,40 110,35 Z",
+    eyeL: "M75,90 C60,95 65,115 75,115 C85,115 90,105 85,90 Z",
+    eyeR: "M130,85 C145,85 145,110 135,110 C125,110 115,100 125,85 Z",
+  },
+];
+
+function SkullCursor() {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setIdx(i => (i + 1) % SKULL_POSES.length), 1800 + Math.random() * 400);
+    return () => clearInterval(id);
+  }, []);
+  const pose = SKULL_POSES[idx];
+  return (
+    <motion.svg
+      viewBox="0 0 200 200"
+      style={{ width: 14, height: 14, overflow: 'visible' }}
+      animate={{ y: [0, -2, 0] }}
+      transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+    >
+      <motion.path fill="var(--color-ascii-fg)" animate={{ d: pose.skull }} transition={{ duration: 0.9, ease: [0.45, 0, 0.55, 1] }} />
+      <motion.path fill="var(--color-ascii-bg)" animate={{ d: pose.eyeL }} transition={{ duration: 0.9, ease: [0.45, 0, 0.55, 1] }} />
+      <motion.path fill="var(--color-ascii-bg)" animate={{ d: pose.eyeR }} transition={{ duration: 0.9, ease: [0.45, 0, 0.55, 1] }} />
+    </motion.svg>
+  );
+}
+
 export default function App() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
@@ -1184,21 +1223,15 @@ export default function App() {
                       transition={{ repeat: Infinity, duration: 1.4 }}
                       style={{ background: 'linear-gradient(90deg, var(--color-ascii-fg) 0%, transparent 100%)' }}
                     />
-                    {/* Arrow character */}
-                    <motion.span
-                      className="relative font-mono text-ascii-fg font-bold leading-none select-none"
-                      style={{ fontSize: 13, paddingLeft: 4 }}
-                      animate={{ opacity: [0.5, 1, 0.5] }}
-                      transition={{ repeat: Infinity, duration: 1.4 }}
-                    >
-                      ▸
-                    </motion.span>
-                    {/* Trailing dash */}
+                    {/* Skull cursor */}
                     <motion.div
-                      className="h-px bg-ascii-fg ml-0.5"
-                      animate={{ width: [4, 8, 4], opacity: [0.2, 0.5, 0.2] }}
-                      transition={{ repeat: Infinity, duration: 1.4 }}
-                    />
+                      className="relative flex items-center"
+                      style={{ paddingLeft: 3 }}
+                      animate={{ opacity: [0.7, 1, 0.7] }}
+                      transition={{ repeat: Infinity, duration: 1.8 }}
+                    >
+                      <SkullCursor />
+                    </motion.div>
                   </motion.div>
                 )}
               </AnimatePresence>
