@@ -98,6 +98,8 @@ export default function App() {
   const synthesisRef = useRef<SpeechSynthesis | null>(null);
   const typingTimeoutRef = useRef<number | null>(null);
   const transientTimeoutRef = useRef<number | null>(null);
+  const toastTimeoutRef = useRef<number | null>(null);
+  const liveRenderTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const activeNoteRef = useRef<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const findInputRef = useRef<HTMLInputElement>(null);
@@ -230,7 +232,9 @@ export default function App() {
     } else {
       setSaveToast(`Save failed: ${result.error}`);
     }
-    setTimeout(() => setSaveToast(null), 3000);
+    // Store ref so unmount can clear it before it fires
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = window.setTimeout(() => setSaveToast(null), 3000);
   };
   
   const addImage = (dataUrl: string) => setNoteImages(prev => [...prev, dataUrl]);
@@ -485,7 +489,6 @@ export default function App() {
     }, 1000);
   };
 
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   // Scrambler Logic
   useEffect(() => {
@@ -534,6 +537,13 @@ export default function App() {
 
     return () => {
       clearInterval(timeInterval);
+      // Cancel any in-flight timers so they don't setState after unmount
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      if (transientTimeoutRef.current) clearTimeout(transientTimeoutRef.current);
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+      if (liveRenderTimerRef.current) clearInterval(liveRenderTimerRef.current);
+      // Cancel speech synthesis if active
+      window.speechSynthesis?.cancel();
     };
   }, []);
 
@@ -556,7 +566,7 @@ export default function App() {
 
   const createNewNote = () => {
     const newNote: Note = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: Math.random().toString(36).substring(2, 11),
       title: 'Untitled Note',
       content: '',
       images: [],
@@ -602,28 +612,29 @@ export default function App() {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);
-    utteranceRef.current = utterance;
     setIsSpeaking(true);
     synthesisRef.current.speak(utterance);
   };
 
   const handleLiveRender = () => {
     if (isLiveRendering || content.length === 0) return;
-    
+
     const originalText = content;
     setIsLiveRendering(true);
     setContent('');
-    
+
     let index = 0;
-    const timer = setInterval(() => {
+    // Store in ref so the unmount cleanup can cancel it
+    liveRenderTimerRef.current = setInterval(() => {
       if (index >= originalText.length) {
-        clearInterval(timer);
+        clearInterval(liveRenderTimerRef.current!);
+        liveRenderTimerRef.current = null;
         setIsLiveRendering(false);
         return;
       }
       setContent(prev => prev + originalText[index]);
       index++;
-    }, 20); // Fast technical render speed
+    }, 20);
   };
 
   const handleClearBuffer = () => {
@@ -633,12 +644,15 @@ export default function App() {
   };
 
   const downloadNote = () => {
-    const element = document.createElement("a");
-    const file = new Blob([content], {type: 'text/plain'});
-    element.href = URL.createObjectURL(file);
-    element.download = `${title || 'buffer'}.txt`;
-    document.body.appendChild(element);
-    element.click();
+    const url = URL.createObjectURL(new Blob([content], { type: 'text/plain' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title || 'buffer'}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    // Clean up immediately — the click schedules the download, so these are safe to remove
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -725,7 +739,6 @@ export default function App() {
               </div>
 
               {/* FILE menu */}
-              {(['FILE', 'EDIT', 'VIEW'] as const).map(menu => null)}
               <div className="relative" onMouseDown={e => e.stopPropagation()}>
                 <button
                   onMouseDown={() => setOpenMenu(m => m === 'FILE' ? null : 'FILE')}

@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+// dialog removed — unused import
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
@@ -25,12 +26,12 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
 }
 
-// Save note to Desktop
+// Save note to Desktop — async so we don't block the main-process event loop
 ipcMain.handle('file:saveToDesktop', async (_, { filename, content }) => {
   const safe = filename.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim() || 'Untitled';
   const dest = path.join(app.getPath('desktop'), safe + '.txt');
   try {
-    fs.writeFileSync(dest, content, 'utf8');
+    await fs.promises.writeFile(dest, content, 'utf8'); // non-blocking
     return { success: true, path: dest };
   } catch (err) {
     return { success: false, error: err.message };
