@@ -53,9 +53,13 @@ function setupUpdater() {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
+  autoUpdater.on('download-progress', (info) => {
+    mainWindow?.webContents.send('update:downloading', Math.round(info.percent));
+  });
+
   autoUpdater.on('update-downloaded', () => {
-    // silent=true means no installer UI, true=relaunch after install
-    autoUpdater.quitAndInstall(true, true);
+    mainWindow?.webContents.send('update:installing');
+    setTimeout(() => autoUpdater.quitAndInstall(true, true), 1500);
   });
 
   // Check on launch, then every 4 hours

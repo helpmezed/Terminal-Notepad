@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('electron', {
   updater: {
     onUpdateAvailable: (cb) => ipcRenderer.on('update:available', cb),
     onUpdateDownloaded: (cb) => ipcRenderer.on('update:downloaded', cb),
+    onUpdateDownloading: (cb) => ipcRenderer.on('update:downloading', (_e, pct) => cb(pct)),
+    onUpdateInstalling: (cb) => ipcRenderer.on('update:installing', cb),
     installUpdate: () => ipcRenderer.send('update:install'),
   },
   file: {

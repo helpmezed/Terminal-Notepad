@@ -8,6 +8,8 @@ interface Window {
     updater: {
       onUpdateAvailable: (cb: () => void) => void;
       onUpdateDownloaded: (cb: () => void) => void;
+      onUpdateDownloading: (cb: (percent: number) => void) => void;
+      onUpdateInstalling: (cb: () => void) => void;
       installUpdate: () => void;
     };
     file: {

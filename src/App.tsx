@@ -27,6 +27,25 @@ interface Note {
   updatedAt: number;
 }
 
+function MenuItem({ children, onClick, shortcut, check }: { children: React.ReactNode; onClick: () => void; shortcut?: string; check?: boolean }) {
+  return (
+    <button
+      onMouseDown={e => { e.preventDefault(); onClick(); }}
+      className="flex items-center justify-between gap-6 px-3 py-1.5 text-[11px] font-sans text-left hover:bg-ascii-fg hover:text-ascii-bg transition-colors w-full"
+    >
+      <span className="flex items-center gap-2">
+        <span className="w-3 text-ascii-fg/50 text-[9px]">{check !== undefined ? (check ? '✓' : '') : ''}</span>
+        {children}
+      </span>
+      {shortcut && <span className="text-[9px] opacity-40 shrink-0">{shortcut}</span>}
+    </button>
+  );
+}
+
+function MenuDivider() {
+  return <div className="h-px bg-ascii-border/40 mx-2 my-0.5" />;
+}
+
 export default function App() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
@@ -53,6 +72,9 @@ export default function App() {
   const [noteImages, setNoteImages] = useState<string[]>([]);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'downloading' | 'installing'>('idle');
+  const [updateProgress, setUpdateProgress] = useState(0);
   const [cursorLine, setCursorLine] = useState(0);
   const [cursorCol, setCursorCol] = useState(0);
   const [textareaScrollTop, setTextareaScrollTop] = useState(0);
@@ -236,6 +258,27 @@ export default function App() {
     const files = (Array.from(e.dataTransfer.files) as File[]).filter(f => f.type.startsWith('image/'));
     if (files.length) { e.preventDefault(); handleImageFiles(files); }
   };
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!openMenu) return;
+    const handler = () => setOpenMenu(null);
+    window.addEventListener('mousedown', handler);
+    return () => window.removeEventListener('mousedown', handler);
+  }, [openMenu]);
+
+  // Updater IPC listeners
+  useEffect(() => {
+    if (!window.electron) return;
+    window.electron.updater.onUpdateDownloading((pct: number) => {
+      setUpdateStatus('downloading');
+      setUpdateProgress(pct);
+    });
+    window.electron.updater.onUpdateInstalling(() => {
+      setUpdateStatus('installing');
+      setUpdateProgress(100);
+    });
+  }, []);
 
   // Sync ref for effect safety
   useEffect(() => {
@@ -674,46 +717,100 @@ export default function App() {
       <div className="title-bar shrink-0 flex justify-between items-center">
         <div className="flex items-center gap-4">
            <span className="glitch-text font-bold tracking-widest" data-text="TERMINAL NOTEPAD">TERMINAL NOTEPAD</span>
-           <div className="no-drag flex gap-4 ml-6 text-[10px] uppercase font-bold text-ascii-bg opacity-80">
-              <div className="flex items-center gap-1.5 px-2 bg-ascii-bg/20 rounded-xs">
+           <div className="no-drag flex items-center gap-1 ml-4 text-[11px] font-sans font-medium text-ascii-bg">
+              {/* Status pill */}
+              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-ascii-bg/20 rounded mr-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-ascii-fg animate-pulse" />
-                <span className="text-[8px] tracking-[0.2em]">SYNC_LNK_ACTIVE</span>
+                <span className="text-[8px] tracking-widest opacity-70">ONLINE</span>
               </div>
-              <div className="relative group">
-                <span className="cursor-pointer hover:underline">FILE</span>
-                <div className="absolute top-full left-0 z-50 hidden group-hover:flex flex-col bg-ascii-bg border border-ascii-border min-w-[170px] shadow-xl text-ascii-fg">
-                   <div className="px-3 py-1.5 hover:bg-ascii-fg hover:text-ascii-bg cursor-pointer" onClick={createNewNote}>NEW BUFFER</div>
-                   <div className="px-3 py-1.5 hover:bg-ascii-fg hover:text-ascii-bg cursor-pointer border-t border-ascii-dim/30" onClick={() => imageInputRef.current?.click()}>INSERT IMAGE</div>
-                   <div className="px-3 py-1.5 hover:bg-ascii-fg hover:text-ascii-bg cursor-pointer border-t border-ascii-dim/30" onClick={saveToDesktop}>SAVE TO DESKTOP</div>
-                   <div className="px-3 py-1.5 hover:bg-ascii-fg hover:text-ascii-bg cursor-pointer" onClick={downloadNote}>EXPORT (DOWNLOAD)</div>
-                </div>
+
+              {/* FILE menu */}
+              {(['FILE', 'EDIT', 'VIEW'] as const).map(menu => null)}
+              <div className="relative" onMouseDown={e => e.stopPropagation()}>
+                <button
+                  onMouseDown={() => setOpenMenu(m => m === 'FILE' ? null : 'FILE')}
+                  className={`px-3 py-0.5 rounded transition-colors ${openMenu === 'FILE' ? 'bg-ascii-bg/30' : 'hover:bg-ascii-bg/20'}`}
+                >File</button>
+                <AnimatePresence>
+                  {openMenu === 'FILE' && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.1 }}
+                      className="absolute top-full left-0 mt-1 z-[100] flex flex-col bg-ascii-bg border border-ascii-border/80 min-w-[180px] shadow-2xl shadow-black/60 rounded-sm overflow-hidden text-ascii-fg"
+                    >
+                      <MenuItem onClick={() => { createNewNote(); setOpenMenu(null); }}>New Buffer</MenuItem>
+                      <MenuDivider />
+                      <MenuItem onClick={() => { imageInputRef.current?.click(); setOpenMenu(null); }}>Insert Image</MenuItem>
+                      <MenuDivider />
+                      <MenuItem onClick={() => { saveToDesktop(); setOpenMenu(null); }}>Save to Desktop</MenuItem>
+                      <MenuItem onClick={() => { downloadNote(); setOpenMenu(null); }}>Export / Download</MenuItem>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-              <div className="relative group">
-                <span className="cursor-pointer hover:underline">EDIT</span>
-                <div className="absolute top-full left-0 z-50 hidden group-hover:flex flex-col bg-ascii-bg border border-ascii-border min-w-[150px] shadow-xl text-ascii-fg">
-                   <div className="px-3 py-1.5 hover:bg-ascii-fg hover:text-ascii-bg cursor-pointer flex justify-between" onClick={handleSelectAll}>SELECT ALL<span className="opacity-40">Ctrl+A</span></div>
-                   <div className="px-3 py-1.5 hover:bg-ascii-fg hover:text-ascii-bg cursor-pointer flex justify-between border-t border-ascii-dim/30" onClick={() => openFind(false)}>FIND<span className="opacity-40">Ctrl+F</span></div>
-                   <div className="px-3 py-1.5 hover:bg-ascii-fg hover:text-ascii-bg cursor-pointer flex justify-between" onClick={() => openFind(true)}>REPLACE<span className="opacity-40">Ctrl+H</span></div>
-                   <div className="px-3 py-1.5 hover:bg-ascii-fg hover:text-ascii-bg cursor-pointer flex justify-between" onClick={() => setShowGoToLine(true)}>GO TO LINE<span className="opacity-40">Ctrl+G</span></div>
-                   <div className="px-3 py-1.5 hover:bg-ascii-fg hover:text-ascii-bg cursor-pointer flex justify-between border-t border-ascii-dim/30" onClick={insertDateTime}>DATE/TIME<span className="opacity-40">F5</span></div>
-                   <div className="px-3 py-1.5 hover:bg-ascii-fg hover:text-ascii-bg cursor-pointer border-t border-ascii-dim/30" onClick={handleClearBuffer}>CLEAR</div>
-                   <div className="px-3 py-1.5 hover:bg-ascii-fg hover:text-ascii-bg cursor-pointer" onClick={() => setIsScrambled(!isScrambled)}>CRYPTO</div>
-                </div>
+
+              {/* EDIT menu */}
+              <div className="relative" onMouseDown={e => e.stopPropagation()}>
+                <button
+                  onMouseDown={() => setOpenMenu(m => m === 'EDIT' ? null : 'EDIT')}
+                  className={`px-3 py-0.5 rounded transition-colors ${openMenu === 'EDIT' ? 'bg-ascii-bg/30' : 'hover:bg-ascii-bg/20'}`}
+                >Edit</button>
+                <AnimatePresence>
+                  {openMenu === 'EDIT' && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.1 }}
+                      className="absolute top-full left-0 mt-1 z-[100] flex flex-col bg-ascii-bg border border-ascii-border/80 min-w-[200px] shadow-2xl shadow-black/60 rounded-sm overflow-hidden text-ascii-fg"
+                    >
+                      <MenuItem shortcut="Ctrl+A" onClick={() => { handleSelectAll(); setOpenMenu(null); }}>Select All</MenuItem>
+                      <MenuDivider />
+                      <MenuItem shortcut="Ctrl+F" onClick={() => { openFind(false); setOpenMenu(null); }}>Find</MenuItem>
+                      <MenuItem shortcut="Ctrl+H" onClick={() => { openFind(true); setOpenMenu(null); }}>Replace</MenuItem>
+                      <MenuItem shortcut="Ctrl+G" onClick={() => { setShowGoToLine(true); setOpenMenu(null); }}>Go to Line</MenuItem>
+                      <MenuDivider />
+                      <MenuItem shortcut="F5" onClick={() => { insertDateTime(); setOpenMenu(null); }}>Insert Date/Time</MenuItem>
+                      <MenuItem onClick={() => { handleClearBuffer(); setOpenMenu(null); }}>Clear Buffer</MenuItem>
+                      <MenuItem onClick={() => { setIsScrambled(!isScrambled); setOpenMenu(null); }}>Crypto Mode</MenuItem>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-              <div className="relative group">
-                <span className="cursor-pointer hover:underline">VIEW</span>
-                <div className="absolute top-full left-0 z-50 hidden group-hover:flex flex-col bg-ascii-bg border border-ascii-border min-w-[160px] shadow-xl text-ascii-fg">
-                   <div className="px-3 py-1.5 hover:bg-ascii-fg hover:text-ascii-bg cursor-pointer flex justify-between" onClick={() => setWordWrap(w => !w)}>WORD WRAP<span className="opacity-40">{wordWrap ? '✓' : ''}</span></div>
-                   <div className="px-3 py-1.5 hover:bg-ascii-fg hover:text-ascii-bg cursor-pointer flex justify-between" onClick={() => setShowLineNumbers(n => !n)}>LINE NUMBERS<span className="opacity-40">{showLineNumbers ? '✓' : ''}</span></div>
-                   <div className="px-3 py-1.5 hover:bg-ascii-fg hover:text-ascii-bg cursor-pointer border-t border-ascii-dim/30 flex justify-between" onClick={zoomIn}>ZOOM IN<span className="opacity-40">Ctrl++</span></div>
-                   <div className="px-3 py-1.5 hover:bg-ascii-fg hover:text-ascii-bg cursor-pointer flex justify-between" onClick={zoomOut}>ZOOM OUT<span className="opacity-40">Ctrl+-</span></div>
-                   <div className="px-3 py-1.5 hover:bg-ascii-fg hover:text-ascii-bg cursor-pointer flex justify-between" onClick={zoomReset}>RESTORE ZOOM<span className="opacity-40">Ctrl+0</span></div>
-                   <div className="px-3 py-1.5 hover:bg-ascii-fg hover:text-ascii-bg cursor-pointer border-t border-ascii-dim/30" onClick={() => setCrtEnabled(!crtEnabled)}>CRT {crtEnabled ? 'OFF' : 'ON'}</div>
-                   <div className="px-3 py-1.5 hover:bg-ascii-fg hover:text-ascii-bg cursor-pointer" onClick={() => setWireframeEnabled(!wireframeEnabled)}>MESH {wireframeEnabled ? 'OFF' : 'ON'}</div>
-                </div>
+
+              {/* VIEW menu */}
+              <div className="relative" onMouseDown={e => e.stopPropagation()}>
+                <button
+                  onMouseDown={() => setOpenMenu(m => m === 'VIEW' ? null : 'VIEW')}
+                  className={`px-3 py-0.5 rounded transition-colors ${openMenu === 'VIEW' ? 'bg-ascii-bg/30' : 'hover:bg-ascii-bg/20'}`}
+                >View</button>
+                <AnimatePresence>
+                  {openMenu === 'VIEW' && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.1 }}
+                      className="absolute top-full left-0 mt-1 z-[100] flex flex-col bg-ascii-bg border border-ascii-border/80 min-w-[190px] shadow-2xl shadow-black/60 rounded-sm overflow-hidden text-ascii-fg"
+                    >
+                      <MenuItem check={wordWrap} onClick={() => { setWordWrap(w => !w); setOpenMenu(null); }}>Word Wrap</MenuItem>
+                      <MenuItem check={showLineNumbers} onClick={() => { setShowLineNumbers(n => !n); setOpenMenu(null); }}>Line Numbers</MenuItem>
+                      <MenuDivider />
+                      <MenuItem shortcut="Ctrl++" onClick={() => { zoomIn(); setOpenMenu(null); }}>Zoom In</MenuItem>
+                      <MenuItem shortcut="Ctrl+-" onClick={() => { zoomOut(); setOpenMenu(null); }}>Zoom Out</MenuItem>
+                      <MenuItem shortcut="Ctrl+0" onClick={() => { zoomReset(); setOpenMenu(null); }}>Restore Zoom</MenuItem>
+                      <MenuDivider />
+                      <MenuItem check={crtEnabled} onClick={() => { setCrtEnabled(!crtEnabled); setOpenMenu(null); }}>CRT Effect</MenuItem>
+                      <MenuItem check={wireframeEnabled} onClick={() => { setWireframeEnabled(!wireframeEnabled); setOpenMenu(null); }}>Mesh Overlay</MenuItem>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-              <span className="cursor-pointer hover:underline" onClick={handleTTS}>SYNTH</span>
-              <span className="cursor-pointer hover:underline" onClick={() => setDarkMode(!darkMode)}>THEME</span>
+
+              <button className="px-3 py-0.5 rounded hover:bg-ascii-bg/20 transition-colors" onClick={handleTTS}>Synth</button>
+              <button className="px-3 py-0.5 rounded hover:bg-ascii-bg/20 transition-colors" onClick={() => setDarkMode(!darkMode)}>Theme</button>
            </div>
         </div>
         <div className="no-drag flex items-center gap-1">
@@ -1269,6 +1366,51 @@ export default function App() {
               onClick={() => setLightboxIdx(null)}
               className="absolute top-4 right-4 text-ascii-dim hover:text-ascii-fg text-[18px] transition-colors"
             >✕</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Update Status Overlay */}
+      <AnimatePresence>
+        {updateStatus !== 'idle' && (
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[500] w-[320px] border border-ascii-fg/60 bg-ascii-bg shadow-[0_0_40px_rgba(0,255,65,0.25)] overflow-hidden"
+          >
+            {/* Animated scan line */}
+            <motion.div
+              className="absolute top-0 left-0 right-0 h-px bg-ascii-fg/60"
+              animate={{ scaleX: [0, 1], originX: 0 }}
+              transition={{ duration: updateStatus === 'downloading' ? 0.3 : 0.1 }}
+            />
+            <div className="px-4 py-3">
+              <div className="flex items-center gap-3 mb-2">
+                <motion.div
+                  className="w-2 h-2 rounded-full bg-ascii-fg"
+                  animate={{ opacity: [1, 0.2, 1] }}
+                  transition={{ repeat: Infinity, duration: 0.8 }}
+                />
+                <span className="text-ascii-fg text-[11px] font-sans font-semibold tracking-wide">
+                  {updateStatus === 'downloading' ? 'Downloading update…' : 'Installing update — restarting…'}
+                </span>
+              </div>
+              {/* Progress bar */}
+              <div className="h-1 bg-ascii-fg/10 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-ascii-fg rounded-full"
+                  initial={{ width: '0%' }}
+                  animate={{ width: updateStatus === 'installing' ? '100%' : `${updateProgress}%` }}
+                  transition={{ duration: 0.4, ease: 'easeOut' }}
+                />
+              </div>
+              <div className="mt-1.5 flex justify-between text-[9px] text-ascii-dim font-sans">
+                <span>{updateStatus === 'installing' ? 'Applying patch…' : 'Fetching package…'}</span>
+                <span>{updateStatus === 'installing' ? '100%' : `${Math.round(updateProgress)}%`}</span>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
