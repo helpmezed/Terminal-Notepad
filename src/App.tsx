@@ -1196,7 +1196,7 @@ export default function App() {
                 wrap={wordWrap ? 'soft' : 'off'}
                 className={`flex-1 bg-transparent border-none outline-none resize-none font-mono pt-2 pr-2 pb-2 pl-8 selection:bg-ascii-fg selection:text-ascii-bg scrollbar-thin scrollbar-track-transparent scrollbar-thumb-ascii-dim/50 ${isScrambled || isLiveRendering ? 'cursor-not-allowed opacity-80' : ''}`}
                 style={{ fontSize, lineHeight: `${lineHeight}px` }}
-                placeholder="[WAITING_FOR_DATA_INPUT...]"
+                placeholder="[INITIATE_INPUT...]"
                 spellCheck={false}
                 readOnly={isScrambled || isLiveRendering}
               />
