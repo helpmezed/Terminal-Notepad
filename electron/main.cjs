@@ -54,6 +54,14 @@ function setupUpdater() {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
+  autoUpdater.on('update-available', (info) => {
+    mainWindow?.webContents.send('update:available', info.version);
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    // no-op — normal case
+  });
+
   autoUpdater.on('download-progress', (info) => {
     mainWindow?.webContents.send('update:downloading', Math.round(info.percent));
   });
@@ -63,9 +71,16 @@ function setupUpdater() {
     setTimeout(() => autoUpdater.quitAndInstall(true, true), 1500);
   });
 
-  // Check on launch, then every 4 hours
-  autoUpdater.checkForUpdates().catch(() => {});
-  setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 4 * 60 * 60 * 1000);
+  autoUpdater.on('error', (err) => {
+    mainWindow?.webContents.send('update:error', err.message);
+    console.error('[updater]', err);
+  });
+
+  ipcMain.on('update:install', () => autoUpdater.quitAndInstall(true, true));
+
+  const check = () => autoUpdater.checkForUpdates().catch((err) => console.error('[updater] check failed:', err));
+  check();
+  setInterval(check, 4 * 60 * 60 * 1000);
 }
 
 app.whenReady().then(() => {

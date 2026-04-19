@@ -7,10 +7,10 @@ contextBridge.exposeInMainWorld('electron', {
     maximize: () => ipcRenderer.send('window:maximize'),
   },
   updater: {
-    onUpdateAvailable: (cb) => ipcRenderer.on('update:available', cb),
-    onUpdateDownloaded: (cb) => ipcRenderer.on('update:downloaded', cb),
+    onUpdateAvailable: (cb) => ipcRenderer.on('update:available', (_e, version) => cb(version)),
     onUpdateDownloading: (cb) => ipcRenderer.on('update:downloading', (_e, pct) => cb(pct)),
     onUpdateInstalling: (cb) => ipcRenderer.on('update:installing', cb),
+    onUpdateError: (cb) => ipcRenderer.on('update:error', (_e, msg) => cb(msg)),
     installUpdate: () => ipcRenderer.send('update:install'),
   },
   file: {

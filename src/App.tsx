@@ -317,6 +317,12 @@ const [crtEnabled, setCrtEnabled] = useState(true);
       setUpdateStatus('installing');
       setUpdateProgress(100);
     });
+    window.electron.updater.onUpdateError((msg: string) => {
+      console.error('[updater]', msg);
+      setSaveToast(`Update error: ${msg}`);
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+      toastTimeoutRef.current = window.setTimeout(() => setSaveToast(null), 5000);
+    });
   }, []);
 
   // Sync ref for effect safety

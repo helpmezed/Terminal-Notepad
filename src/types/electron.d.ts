@@ -6,10 +6,10 @@ interface Window {
       maximize: () => void;
     };
     updater: {
-      onUpdateAvailable: (cb: () => void) => void;
-      onUpdateDownloaded: (cb: () => void) => void;
+      onUpdateAvailable: (cb: (version: string) => void) => void;
       onUpdateDownloading: (cb: (percent: number) => void) => void;
       onUpdateInstalling: (cb: () => void) => void;
+      onUpdateError: (cb: (message: string) => void) => void;
       installUpdate: () => void;
     };
     file: {
