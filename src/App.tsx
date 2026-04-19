@@ -6,8 +6,6 @@
 import React, { useState, useEffect, useRef, MouseEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Volume2,
-  VolumeX,
   Plus,
   Trash2,
   Play,
@@ -97,9 +95,7 @@ export default function App() {
   const [scrambledContent, setScrambledContent] = useState('');
   const [isTransient, setIsTransient] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [isSoundEnabled, setIsSoundEnabled] = useState(true);
-  const [soundVolume, setSoundVolume] = useState(0.2);
-  const [crtEnabled, setCrtEnabled] = useState(true);
+const [crtEnabled, setCrtEnabled] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
   const [systemTime, setSystemTime] = useState(new Date());
   const [uptime, setUptime] = useState(0);
@@ -356,71 +352,10 @@ export default function App() {
     return () => window.removeEventListener('keydown', down);
   }, [showFind, findMatches, findMatchIdx, findQuery, content, findCaseSensitive, isScrambled, isLiveRendering, textareaFocused]);
 
-  const audioCtxRef = useRef<AudioContext | null>(null);
-
-  const playTypingSound = () => {
-    if (!isSoundEnabled) return;
-
-    try {
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      }
-
-      const ctx = audioCtxRef.current;
-      if (ctx.state === 'suspended') ctx.resume();
-
-      const now = ctx.currentTime;
-      const master = ctx.createGain();
-      master.gain.setValueAtTime(soundVolume, now);
-      master.connect(ctx.destination);
-
-      // Click transient: white noise through a bandpass filter
-      const bufLen = ctx.sampleRate * 0.025;
-      const noiseBuffer = ctx.createBuffer(1, bufLen, ctx.sampleRate);
-      const data = noiseBuffer.getChannelData(0);
-      for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
-      const noiseSource = ctx.createBufferSource();
-      noiseSource.buffer = noiseBuffer;
-
-      const bp = ctx.createBiquadFilter();
-      bp.type = 'bandpass';
-      bp.frequency.setValueAtTime(3500 + Math.random() * 1500, now);
-      bp.Q.value = 1.2;
-
-      const noiseGain = ctx.createGain();
-      noiseGain.gain.setValueAtTime(0.9, now);
-      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.018);
-
-      noiseSource.connect(bp);
-      bp.connect(noiseGain);
-      noiseGain.connect(master);
-      noiseSource.start(now);
-      noiseSource.stop(now + 0.025);
-
-      // Body thud: sine sweep from ~180–60 Hz
-      const thud = ctx.createOscillator();
-      thud.type = 'sine';
-      thud.frequency.setValueAtTime(160 + Math.random() * 40, now);
-      thud.frequency.exponentialRampToValueAtTime(55, now + 0.03);
-
-      const thudGain = ctx.createGain();
-      thudGain.gain.setValueAtTime(0.55, now);
-      thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
-
-      thud.connect(thudGain);
-      thudGain.connect(master);
-      thud.start(now);
-      thud.stop(now + 0.03);
-    } catch (e) {
-      console.warn('Audio peripheral failed to initialize');
-    }
-  };
-
   // Typing animation timeout
   const handleContentChange = (newContent: string) => {
     setContent(newContent);
     setIsTyping(true);
-    playTypingSound();
     if (typingTimeoutRef.current) window.clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = window.setTimeout(() => setIsTyping(false), 1000);
   };
@@ -972,47 +907,6 @@ export default function App() {
                 <span className="text-[11px] font-sans font-bold text-ascii-fg leading-none">{value}</span>
               </div>
             ))}
-          </div>
-
-          {/* Audio Controls */}
-          <div className="px-3 py-3 border-b border-ascii-border/50 space-y-2.5">
-            <span className="text-[8px] font-black tracking-[0.3em] uppercase text-ascii-dim block">Audio</span>
-
-            <div className="flex gap-2">
-              <button
-                onClick={handleTTS}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 border text-[10px] font-bold uppercase tracking-wider transition-all duration-200 rounded-sm ${
-                  isSpeaking
-                    ? 'border-ascii-fg bg-ascii-fg text-ascii-bg'
-                    : 'border-ascii-border text-ascii-fg hover:border-ascii-fg hover:bg-ascii-fg/10'
-                }`}
-              >
-                {isSpeaking ? <><span className="w-2 h-2 bg-ascii-bg rounded-sm inline-block" /> Stop</> : <><Play size={10} /> Play</>}
-              </button>
-              <button
-                onClick={() => setIsSoundEnabled(!isSoundEnabled)}
-                className={`w-10 flex items-center justify-center border rounded-sm transition-all duration-200 ${
-                  isSoundEnabled ? 'border-ascii-fg bg-ascii-fg/10 text-ascii-fg' : 'border-ascii-border text-ascii-dim'
-                }`}
-                title="Toggle Keystroke Audio"
-              >
-                {isSoundEnabled ? <Volume2 size={13} /> : <VolumeX size={13} />}
-              </button>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex justify-between text-[8px] uppercase tracking-wider">
-                <span className="text-ascii-dim">Gain</span>
-                <span className="text-ascii-fg font-sans">{(soundVolume * 100).toFixed(0)}%</span>
-              </div>
-              <input
-                type="range"
-                min="0" max="0.5" step="0.05"
-                value={soundVolume}
-                onChange={(e) => setSoundVolume(parseFloat(e.target.value))}
-                className="w-full h-0.5 bg-ascii-dim/30 rounded-full appearance-none cursor-pointer accent-ascii-fg"
-              />
-            </div>
           </div>
 
           {/* Buffer Controls */}
