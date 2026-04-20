@@ -90,6 +90,10 @@ export default function App() {
   const [title, setTitle] = useState('New Document');
   const [darkMode, setDarkMode] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [ttsPaused, setTtsPaused] = useState(false);
+  const [ttsRate, setTtsRate] = useState(1);
+  const [ttsVoices, setTtsVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [ttsVoice, setTtsVoice] = useState<SpeechSynthesisVoice | null>(null);
   const [isLiveRendering, setIsLiveRendering] = useState(false);
   const [isScrambled, setIsScrambled] = useState(false);
   const [scrambledContent, setScrambledContent] = useState('');
@@ -131,6 +135,10 @@ const [crtEnabled, setCrtEnabled] = useState(true);
   const [goToLineValue, setGoToLineValue] = useState('');
   
   const synthesisRef = useRef<SpeechSynthesis | null>(null);
+  const ttsChunksRef = useRef<string[]>([]);
+  const ttsChunkIdxRef = useRef<number>(0);
+  const ttsRateRef = useRef(1);
+  const ttsVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const typingTimeoutRef = useRef<number | null>(null);
   const transientTimeoutRef = useRef<number | null>(null);
   const toastTimeoutRef = useRef<number | null>(null);
@@ -527,6 +535,13 @@ const [crtEnabled, setCrtEnabled] = useState(true);
     
     synthesisRef.current = window.speechSynthesis;
 
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) setTtsVoices(voices);
+    };
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+
     const savedNotes = localStorage.getItem('ascii_notes');
     if (savedNotes) {
       const parsed: Note[] = JSON.parse(savedNotes).map((n: Note) => ({ images: [], ...n }));
@@ -548,7 +563,7 @@ const [crtEnabled, setCrtEnabled] = useState(true);
       if (transientTimeoutRef.current) clearTimeout(transientTimeoutRef.current);
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
       if (liveRenderTimerRef.current) clearInterval(liveRenderTimerRef.current);
-      // Cancel speech synthesis if active
+      window.speechSynthesis.onvoiceschanged = null;
       window.speechSynthesis?.cancel();
     };
   }, []);
@@ -607,19 +622,60 @@ const [crtEnabled, setCrtEnabled] = useState(true);
     setNoteImages(note.images ?? []);
   };
 
+  useEffect(() => { ttsRateRef.current = ttsRate; }, [ttsRate]);
+  useEffect(() => { ttsVoiceRef.current = ttsVoice; }, [ttsVoice]);
+
+  const speakChunk = (chunks: string[], idx: number) => {
+    if (idx >= chunks.length || !synthesisRef.current) {
+      setIsSpeaking(false);
+      setTtsPaused(false);
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(chunks[idx]);
+    utterance.rate = ttsRateRef.current;
+    if (ttsVoiceRef.current) utterance.voice = ttsVoiceRef.current;
+    utterance.onend = () => {
+      ttsChunkIdxRef.current = idx + 1;
+      speakChunk(chunks, idx + 1);
+    };
+    utterance.onerror = () => { setIsSpeaking(false); setTtsPaused(false); };
+    synthesisRef.current.speak(utterance);
+  };
+
   const handleTTS = () => {
     if (!synthesisRef.current) return;
     if (isSpeaking) {
       synthesisRef.current.cancel();
       setIsSpeaking(false);
+      setTtsPaused(false);
+      ttsChunksRef.current = [];
+      ttsChunkIdxRef.current = 0;
       return;
     }
     const text = content || 'Nothing to read.';
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+    const chunks = text.match(/[^.!?\n]+[.!?\n]+|[^.!?\n]+$/g)
+      ?.map(s => s.trim()).filter(Boolean) ?? [text];
+    ttsChunksRef.current = chunks;
+    ttsChunkIdxRef.current = 0;
     setIsSpeaking(true);
-    synthesisRef.current.speak(utterance);
+    setTtsPaused(false);
+    speakChunk(chunks, 0);
+  };
+
+  const handleTTSPause = () => {
+    if (!synthesisRef.current || !isSpeaking) return;
+    if (ttsPaused) {
+      synthesisRef.current.resume();
+      setTtsPaused(false);
+    } else {
+      synthesisRef.current.pause();
+      setTtsPaused(true);
+    }
+  };
+
+  const handleTTSRate = (rate: number) => {
+    setTtsRate(rate);
+    ttsRateRef.current = rate;
   };
 
   const handleLiveRender = () => {
@@ -828,7 +884,21 @@ const [crtEnabled, setCrtEnabled] = useState(true);
                 </AnimatePresence>
               </div>
 
-              <button className="px-3 py-0.5 rounded hover:bg-ascii-bg/20 transition-colors" onClick={handleTTS}>Synth</button>
+              {/* SYNTH buttons */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleTTS}
+                  className={`px-3 py-0.5 rounded transition-colors ${isSpeaking ? 'bg-ascii-bg/30 font-bold' : 'hover:bg-ascii-bg/20'}`}
+                  title={isSpeaking ? 'Stop' : 'Read aloud'}
+                >{isSpeaking ? '■ Stop' : '▶ Synth'}</button>
+                {isSpeaking && (
+                  <button
+                    onClick={handleTTSPause}
+                    className="px-2 py-0.5 rounded hover:bg-ascii-bg/20 transition-colors"
+                    title={ttsPaused ? 'Resume' : 'Pause'}
+                  >{ttsPaused ? '▶' : '⏸'}</button>
+                )}
+              </div>
               <button className="px-3 py-0.5 rounded hover:bg-ascii-bg/20 transition-colors" onClick={() => setDarkMode(!darkMode)}>Theme</button>
            </div>
         </div>

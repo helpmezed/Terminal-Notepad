@@ -22,7 +22,8 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "assets/icon256.ico"
+      "icon": "assets/icon256.ico",
+      "forceCodeSigning": false
     },
     "nsis": {
       "oneClick": false,
